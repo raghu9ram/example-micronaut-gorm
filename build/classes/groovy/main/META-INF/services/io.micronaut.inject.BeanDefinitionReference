@@ -1,0 +1,7 @@
+com.amzur.test.service.$TransactionServiceDefinitionClass
+com.amzur.test.controller.$BankControllerDefinitionClass
+com.amzur.test.service.$UserServiceDefinitionClass
+com.amzur.test.controller.$UserControllerDefinitionClass
+com.amzur.test.controller.$TransactionControllerDefinitionClass
+com.amzur.test.service.$BankServiceDefinitionClass
+com.amzur.test.handlers.$CustomGlobalExceptionHandlerDefinitionClass
