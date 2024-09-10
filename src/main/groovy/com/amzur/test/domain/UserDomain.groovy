@@ -11,13 +11,18 @@ class UserDomain {
     String email
 
     static hasMany = [ bankDomains: BankDomain, transactionDomains: TransactionDomain ]
-    static mappedBy = [bankDomains: 'userDomain', transactionDomains: 'userDomain']
+    static mappedBy = [ bankDomains: 'userDomain', transactionDomains: 'userDomain' ]
 
     static constraints = {
         mobileNumber(nullable: false, unique: true)
-        userPin(nullable: false, min:100000, max:999999)
+        userPin(nullable: false, min: 100000, max: 999999)
         firstName(nullable: false)
         lastName(nullable: false)
         email(email: true, nullable: false, unique: true)
+    }
+
+    // Helper method to get the primary bank account
+    BankDomain getPrimaryBankDomain() {
+        return bankDomains.find { it.primaryBank }
     }
 }
