@@ -6,10 +6,15 @@ import com.amzur.test.model.BankModel
 import com.amzur.test.model.TransactionModel
 import com.amzur.test.model.UserModel
 import grails.gorm.transactions.Transactional
+import org.grails.datastore.mapping.core.Session
+import org.hibernate.SessionFactory
+
 import javax.inject.Singleton
 
 @Singleton
 class BankService {
+
+    SessionFactory sessionFactory
 
     @Transactional
     def createABank(BankModel bankModel) {
@@ -25,21 +30,9 @@ class BankService {
             throw new NoSuchElementException("UserDomain with ID $userDomainId not found")
         }
 
-        // Check if the bank name is from the predefined list
-        def predefinedBank = BankDomain.findByBankName(bankModel.bankName)
-
-        if (!predefinedBank) {
-            throw new IllegalArgumentException("Bank name ${bankModel.bankName} is not valid")
-        }
-
-        // Check for existing bank record with the same account number
-        def existingBank = BankDomain.findByAccountNumber(bankModel.accountNumber)
-        if (existingBank) {
-            throw new IllegalArgumentException("Bank with account number ${bankModel.accountNumber} already exists")
-        }
-
         BankDomain bankDomain = toBankDomain(bankModel, userDomain)
 
+        // Check for validation errors
         if (!bankDomain.validate()) {
             def errors = bankDomain.errors.allErrors.collect { error ->
                 "${error.field}: ${error.defaultMessage}"
@@ -47,6 +40,7 @@ class BankService {
             throw new RuntimeException("Validation errors: ${errors.join(', ')}")
         }
 
+        // Save the bank domain instance
         if (!bankDomain.save(flush: true)) {
             def errors = bankDomain.errors.allErrors.collect { error ->
                 "${error.field}: ${error.defaultMessage}"
@@ -56,14 +50,6 @@ class BankService {
 
         return toBankModel(bankDomain)
     }
-
-    @Transactional
-    List<BankModel> getPredefinedBanks() {
-        // Fetch only the bank names and ids
-        List<BankDomain> predefinedBanks = BankDomain.findAllByBankNameInList(["SBI", "HDFC", "ICICI"]) // Example filter, adjust as needed
-        return predefinedBanks.collect { toBankModel(it) }
-    }
-
 
     @Transactional
     List<BankModel> getAllBanks() {
@@ -81,6 +67,16 @@ class BankService {
         }
     }
 
+    @Transactional
+    void updatePrimaryBank(Long userId, boolean primaryBank) {
+        if (primaryBank) {
+            Session session = sessionFactory.currentSession
+            session.createNativeQuery("UPDATE bank_domain SET primary_bank = false WHERE user_domain_id = :userId")
+                    .setParameter("userId", userId)
+                    .executeUpdate()
+        }
+    }
+
     static BankModel toBankModel(BankDomain bankDomain) {
         new BankModel(
                 id: bankDomain.id,
@@ -89,6 +85,7 @@ class BankService {
                 bankPin: bankDomain.bankPin,
                 transactionLimit: bankDomain.transactionLimit,
                 balance: bankDomain.balance,
+                primaryBank: bankDomain.primaryBank,
                 userModel: new UserModel(
                         id: bankDomain.userDomain.id,
                         mobileNumber: bankDomain.userDomain.mobileNumber,
@@ -115,6 +112,7 @@ class BankService {
                 bankPin: bankModel.bankPin,
                 transactionLimit: bankModel.transactionLimit,
                 balance: bankModel.balance,
+                primaryBank: bankModel.primaryBank,
                 userDomain: userDomain
         )
     }

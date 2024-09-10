@@ -18,6 +18,7 @@ class UserService {
     def createAUser(UserModel userModel) {
         UserDomain userDomain = toUserDomain(userModel)
         userDomain.save(flush: true)
+        return toUserModel(userDomain)
     }
 
     @Transactional
@@ -33,42 +34,22 @@ class UserService {
     @Transactional
     def updateAUser(Long id, UserModel userModel) {
         UserDomain userDomain = UserDomain.findById(id)
-        if(userDomain) {
+
+        if (userDomain) {
             userDomain.mobileNumber = userModel.mobileNumber
             userDomain.userPin = userModel.userPin
             userDomain.firstName = userModel.firstName
             userDomain.lastName = userModel.lastName
             userDomain.email = userModel.email
-            if (userModel.banks) {
-                userModel.banks.each { bankModel ->
-                    def bankDomain = new BankDomain(
-                            bankName: bankModel.bankName,
-                            accountNumber: bankModel.accountNumber,
-                            bankPin: bankModel.bankPin,
-                            transactionLimit: bankModel.transactionLimit,
-                            balance: bankModel.balance,
-                            userDomain: userDomain
-                    )
-                    userDomain.addToBanks(bankDomain)
-                }
-            }
 
-            if (userModel.transactions) {
-                userModel.transactions.each { transactionModel ->
-                    def transactionDomain = new TransactionDomain(
-                            recipientMobile: transactionModel.recipientMobile,
-                            amount: transactionModel.amount,
-                            dateTime: transactionModel.dateTime,
-                            userDomain: userDomain
-                    )
-                    userDomain.addToTransactions(transactionDomain)
-                }
-            }
             userDomain.save(flush: true)
+
+            return toUserModel(userDomain)
         } else {
             throw new NoSuchElementException("User with ID $id not found")
         }
     }
+
 
     static UserModel toUserModel(UserDomain userDomain) {
         new UserModel(
@@ -80,15 +61,18 @@ class UserService {
                 email: userDomain.email,
                 bankModels: userDomain.bankDomains.collect { bankDomain ->
                     new BankModel(
+                            id: bankDomain.id,
                             bankName: bankDomain.bankName,
                             accountNumber: bankDomain.accountNumber,
                             bankPin: bankDomain.bankPin,
                             transactionLimit: bankDomain.transactionLimit,
-                            balance: bankDomain.balance
+                            balance: bankDomain.balance,
+                            primaryBank: bankDomain.primaryBank
                     )
                 },
                 transactionModels: userDomain.transactionDomains.collect { transactionDomain ->
                     new TransactionModel(
+                            id: transactionDomain.id,
                             recipientMobile: transactionDomain.recipientMobile,
                             amount: transactionDomain.amount,
                             dateTime: transactionDomain.dateTime
@@ -108,7 +92,7 @@ class UserService {
     }
 
     @Transactional
-    def login(Long mobileNumber, Number userPin) {
+    def login(Long mobileNumber, Integer userPin) {
         UserDomain userDomain = UserDomain.findByMobileNumberAndUserPin(mobileNumber, userPin)
         if(userDomain) {
             return toUserModel(userDomain)
@@ -129,18 +113,40 @@ class UserService {
                         bankPin: bankDomain.bankPin,
                         transactionLimit: bankDomain.transactionLimit,
                         balance: bankDomain.balance,
-                        userModel: new UserModel(
-                                id: userDomain.id,
-                                mobileNumber: userDomain.mobileNumber,
-                                userPin: userDomain.userPin,
-                                firstName: userDomain.firstName,
-                                lastName: userDomain.lastName,
-                                email: userDomain.email
-                        )
+                        primaryBank: bankDomain.primaryBank,
+                        userModel: toUserModel(userDomain)
                 )
             }
         } else {
             throw new NoSuchElementException("User with ID $userId not found")
+        }
+    }
+
+    @Transactional
+    List<TransactionModel> getUserTransactions(Long userId) {
+        UserDomain userDomain = UserDomain.findById(userId)
+        if(userDomain) {
+            return userDomain.transactionDomains.collect { TransactionDomain transactionDomain ->
+                new TransactionModel(
+                        id: transactionDomain.id,
+                        recipientMobile: transactionDomain.recipientMobile,
+                        amount: transactionDomain.amount,
+                        dateTime: transactionDomain.dateTime,
+                        userModel: toUserModel(userDomain)
+                )
+            }
+        } else {
+            throw new NoSuchElementException("User with ID $userId not found")
+        }
+    }
+
+    @Transactional
+    UserModel getUserByMobileNumber(String mobileNumber) {
+        UserDomain userDomain = UserDomain.findByMobileNumber(mobileNumber)
+        if (userDomain) {
+            return toUserModel(userDomain)
+        } else {
+            throw new NoSuchElementException("User with mobile number $mobileNumber not found")
         }
     }
 }
