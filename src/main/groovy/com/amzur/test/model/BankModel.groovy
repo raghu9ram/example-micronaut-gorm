@@ -9,4 +9,9 @@ class BankModel {
     Integer balance
     UserModel userModel
     List<TransactionModel> transactionModels = []
+    Boolean primaryBank
+
+    boolean isPrimary() {
+        return primaryBank == true
+    }
 }
