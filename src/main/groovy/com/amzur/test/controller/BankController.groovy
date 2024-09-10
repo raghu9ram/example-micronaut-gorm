@@ -3,47 +3,34 @@ package com.amzur.test.controller
 import com.amzur.test.model.BankModel
 import com.amzur.test.service.BankService
 import io.micronaut.http.HttpResponse
-import io.micronaut.http.annotation.Body
-import io.micronaut.http.annotation.Controller
-import io.micronaut.http.annotation.Get
-import io.micronaut.http.annotation.PathVariable
-import io.micronaut.http.annotation.Post
+import io.micronaut.http.annotation.*
+import io.micronaut.http.MediaType
 
 import javax.inject.Inject
 
 @Controller("/banks")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
 class BankController {
+
     @Inject
     BankService bankService
-    BankController(BankService bankService) {
-        this.bankService = bankService
-    }
 
     @Post("/")
-    HttpResponse<?> createABank(@Body BankModel bankModel) {
+    HttpResponse<BankModel> createABank(@Body BankModel bankModel) {
         try {
             def bank = bankService.createABank(bankModel)
-            return HttpResponse.created(bank)
-        } catch (IllegalArgumentException e) {
-            return HttpResponse.badRequest("Invalid request: ${e.message}")
+            if (bank) {
+                return HttpResponse.created(bank)
+            } else {
+                return HttpResponse.badRequest("Failed to add bank account")
+            }
         } catch (RuntimeException e) {
             return HttpResponse.badRequest("Validation or persistence error: ${e.message}")
         } catch (Exception e) {
             return HttpResponse.serverError("Error creating bank account: ${e.message}")
         }
     }
-
-    @Get("/predefined")
-    HttpResponse<List<Map>> getPredefinedBanks() {
-        try {
-            List<BankModel> predefinedBanks = bankService.getPredefinedBanks()
-            List<Map> banksList = predefinedBanks.collect { [ id: it.id, bankName: it.bankName ] }
-            return HttpResponse.ok(banksList)
-        } catch (Exception e) {
-            return HttpResponse.serverError("Error retrieving predefined banks: ${e.message}")
-        }
-    }
-
 
     @Get("/")
     HttpResponse<List<BankModel>> getAllBanks() {
@@ -59,11 +46,22 @@ class BankController {
     HttpResponse<BankModel> getABank(@PathVariable Long id) {
         try {
             BankModel bank = bankService.getABank(id)
-            return HttpResponse.ok(bank)
-        } catch (NoSuchElementException e) {
-            return HttpResponse.notFound("Bank with ID $id not found")
+            if (bank) {
+                return HttpResponse.ok(bank)
+            } else {
+                return HttpResponse.notFound("Bank with ID $id not found")
+            }
         } catch (Exception e) {
             return HttpResponse.serverError("Error retrieving bank account: ${e.message}")
         }
+    }
+
+    @Patch("/primary/{userId}")
+    HttpResponse<?> updatePrimaryBank(@PathVariable Long userId, @Body Map<String, Boolean> body) {
+        boolean primaryBank = body.primaryBank
+        if (primaryBank) {
+            bankService.updatePrimaryBank(userId, primaryBank)
+        }
+        return HttpResponse.noContent()
     }
 }

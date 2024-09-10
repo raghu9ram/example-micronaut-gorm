@@ -2,6 +2,7 @@ package com.amzur.test.controller
 
 import com.amzur.test.handlers.UserNotFound
 import com.amzur.test.model.BankModel
+import com.amzur.test.model.TransactionModel
 import com.amzur.test.model.UserModel
 import com.amzur.test.service.UserService
 import io.micronaut.http.HttpResponse
@@ -11,44 +12,37 @@ import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.PathVariable
 import io.micronaut.http.annotation.Post
 import io.micronaut.http.annotation.Put
+import io.micronaut.http.annotation.Produces
+import io.micronaut.http.MediaType
 
 import javax.inject.Inject
 
 @Controller("/users")
+@Produces(MediaType.APPLICATION_JSON)
 class UserController {
+
     @Inject
     UserService userService
-    UserController(UserService userService) {
-        this.userService = userService
-    }
 
     @Post("/")
-    def createAUser(@Body UserModel userModel) {
+    HttpResponse<UserModel> createAUser(@Body UserModel userModel) {
         try {
             def user = userService.createAUser(userModel)
-            if(user) {
-                return HttpResponse.created(user)
-            } else {
-                return HttpResponse.badRequest("Failed to add user")
-            }
+            return HttpResponse.created(user)
         } catch (Exception e) {
             return HttpResponse.serverError("Error creating user: ${e.message}")
         }
     }
 
     @Post("/login")
-    def login(@Body UserModel userModel) {
+    HttpResponse<UserModel> login(@Body UserModel userModel) {
         try {
             def user = userService.login(userModel.mobileNumber, userModel.userPin)
-            if(user) {
-                return HttpResponse.ok(user)
-            } else {
-                return HttpResponse.badRequest("Failed to recognise user details")
-            }
-        }  catch (UserNotFound e) {
+            return HttpResponse.ok(user)
+        } catch (UserNotFound e) {
             return HttpResponse.badRequest("Invalid credentials: ${e.message}")
-        }  catch (Exception e) {
-            return HttpResponse.serverError("An Error occured: ${e.message}")
+        } catch (Exception e) {
+            return HttpResponse.serverError("An error occurred: ${e.message}")
         }
     }
 
@@ -65,14 +59,14 @@ class UserController {
     }
 
     @Put("/{id}")
-    def updateAUser(@PathVariable Long id, @Body UserModel userModel) {
+    HttpResponse<Void> updateAUser(@PathVariable Long id, @Body UserModel userModel) {
         try {
             userService.updateAUser(id, userModel)
             return HttpResponse.ok()
         } catch (NoSuchElementException e) {
-            return HttpResponse.notFound("User with Id $id not found")
+            return HttpResponse.notFound("User with ID $id not found")
         } catch (Exception e) {
-            return HttpResponse.serverError("Error retrieving user: ${e.message}")
+            return HttpResponse.serverError("Error updating user: ${e.message}")
         }
     }
 
@@ -85,6 +79,30 @@ class UserController {
             return HttpResponse.notFound("User with ID $id not found")
         } catch (Exception e) {
             return HttpResponse.serverError("Error retrieving user banks: ${e.message}")
+        }
+    }
+
+    @Get("/{id}/transactions")
+    HttpResponse<List<TransactionModel>> getUserTransactions(@PathVariable Long id) {
+        try {
+            List<TransactionModel> transactions = userService.getUserTransactions(id)
+            return HttpResponse.ok(transactions)
+        } catch (NoSuchElementException e) {
+            return HttpResponse.notFound("User with ID $id not found")
+        } catch (Exception e) {
+            return HttpResponse.serverError("Error retrieving user transactions: ${e.message}")
+        }
+    }
+
+    @Get("/byMobileNumber/{mobileNumber}")
+    HttpResponse<UserModel> getUserByMobileNumber(@PathVariable String mobileNumber) {
+        try {
+            UserModel user = userService.getUserByMobileNumber(mobileNumber)
+            return HttpResponse.ok(user)
+        } catch (NoSuchElementException e) {
+            return HttpResponse.notFound("User with mobile number $mobileNumber not found")
+        } catch (Exception e) {
+            return HttpResponse.serverError("Error retrieving user: ${e.message}")
         }
     }
 }
